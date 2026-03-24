@@ -97,8 +97,9 @@ def download(ctx, lookback_days, codes, force_refresh, max_workers, rate_limit):
 @click.option("--epochs", default=None, type=int, help="训练轮数（覆盖 config）")
 @click.option("--max-stocks", default=None, type=int, help="最多使用几只股票（调试用）")
 @click.option("--device", default=None, help="cuda / mps / cpu")
+@click.option("--resume", is_flag=True, default=False, help="从 last.pt 断点续训")
 @click.pass_context
-def train(ctx, epochs, max_stocks, device):
+def train(ctx, epochs, max_stocks, device, resume):
     """用对比学习训练 Transformer 编码器"""
     config = ctx.obj["config"]
     if epochs:
@@ -133,10 +134,10 @@ def train(ctx, epochs, max_stocks, device):
     from stock_lookalike.train import train as do_train
 
     click.echo("构建训练集...")
-    dataset = build_dataset_from_stocks(stock_data, window_size=window_size)
-    click.echo(f"训练样本数: {len(dataset)}")
+    train_dataset, val_dataset = build_dataset_from_stocks(stock_data, window_size=window_size)
+    click.echo(f"训练样本数: {len(train_dataset)}，验证样本数: {len(val_dataset)}")
 
-    model, history = do_train(dataset, config, device=device)
+    model, history = do_train(train_dataset, config, device=device, resume=resume, val_dataset=val_dataset)
     click.echo(f"训练完成，最终 loss={history[-1]['loss']:.4f}")
 
 
