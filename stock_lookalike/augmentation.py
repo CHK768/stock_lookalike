@@ -5,18 +5,18 @@ import numpy as np
 class StockAugmentor:
     """
     对比学习增强策略：
-    - 高斯噪声 (std=0.005)，不改变幅度
-    - 时序平移 ±2天，边界填0
-    - 随机遮蔽 p=0.03/天
+    - 高斯噪声 (std=0.015)，不改变幅度
+    - 时序平移 ±3天，边界填0
+    - 随机遮蔽 p=0.12/天
 
     注意：不使用幅度缩放，以保留绝对涨跌幅信息。
     """
 
     def __init__(
         self,
-        noise_std: float = 0.005,
-        max_shift: int = 2,
-        mask_prob: float = 0.03,
+        noise_std: float = 0.015,
+        max_shift: int = 3,
+        mask_prob: float = 0.12,
     ):
         self.noise_std = noise_std
         self.max_shift = max_shift
