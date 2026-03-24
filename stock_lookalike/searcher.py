@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 
 from .feature_engineer import get_latest_window, get_window_at_date
@@ -68,12 +69,14 @@ class StockSearcher:
         window: np.ndarray,
         top_k: int = 10,
         exclude_codes: list[str] | None = None,
+        query_end_date: str | None = None,
     ) -> list[SearchResult]:
         """
         Args:
             window: np.ndarray [T, 5]，已归一化
             top_k: 返回最相似数量
             exclude_codes: 排除的股票代码列表（如查询自身）
+            query_end_date: 查询窗口截止日期（全历史模式下用于过滤同股票近期窗口）
 
         Returns:
             list[SearchResult]
@@ -95,6 +98,16 @@ class StockSearcher:
         global_end_date = self.metadata.get("end_date", "")
 
         exclude_set = set(exclude_codes or [])
+        window_size = self.config.get("data", {}).get("window_size", 30)
+
+        # 全历史模式：解析查询截止日期，用于排除同股票近期窗口
+        query_ts = None
+        if per_window_ends and query_end_date:
+            try:
+                query_ts = pd.Timestamp(query_end_date)
+            except Exception:
+                pass
+
         # 按相似度降序排列
         sorted_idx = np.argsort(-similarities)
 
@@ -102,9 +115,22 @@ class StockSearcher:
         rank = 1
         for idx in sorted_idx:
             code = codes[idx]
-            if code in exclude_set:
-                continue
             window_end = per_window_ends[idx] if per_window_ends else global_end_date
+
+            # 排除指定代码（如查询自身）
+            if code in exclude_set:
+                # 全历史模式：同一股票只排除时间上相近的窗口（< window_size 天），保留远期历史
+                if per_window_ends and query_ts is not None:
+                    try:
+                        we_ts = pd.Timestamp(window_end)
+                        if abs((we_ts - query_ts).days) < window_size:
+                            continue
+                        # 时间足够远的同股票历史窗口保留
+                    except Exception:
+                        continue
+                else:
+                    continue
+
             results.append(SearchResult(
                 rank=rank,
                 code=code,
@@ -140,8 +166,14 @@ class StockSearcher:
         window_size = self.config.get("data", {}).get("window_size", 30)
         if end_date:
             window = get_window_at_date(df, end_date=end_date, window_size=window_size)
+            # 推算实际窗口截止日（可能比 end_date 早）
+            sub = df[df["date"] <= pd.Timestamp(end_date)]
+            actual_end = sub["date"].iloc[-1].strftime("%Y-%m-%d") if len(sub) >= window_size else end_date
         else:
             window = get_latest_window(df, window_size=window_size)
+            actual_end = df["date"].iloc[-1].strftime("%Y-%m-%d") if len(df) > 0 else None
         if window is None:
             raise ValueError(f"股票 {code} 在 {end_date or '最新'} 前数据不足以提取 {window_size} 天窗口")
-        return self.search_by_window(window, top_k=top_k, exclude_codes=[code])
+        return self.search_by_window(
+            window, top_k=top_k, exclude_codes=[code], query_end_date=actual_end
+        )
