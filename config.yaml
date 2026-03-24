@@ -9,7 +9,8 @@ data:
 
 # 模型参数
 model:
-  input_dim: 5             # OHLCV
+  model_type: dual_channel  # single | dual_channel
+  input_dim: 5             # OHLCV（single 通道用）
   d_model: 64
   nhead: 4
   num_layers: 3
