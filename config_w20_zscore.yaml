@@ -1,0 +1,37 @@
+# 市场中性 Z-Score 特征版本（支持跨周期形态对比）
+# 特征归一化：窗口内日收益率 Z-Score，去除市场趋势方向和波动率差异
+
+# 数据参数
+data:
+  window_size: 20
+  max_suspend_days: 5
+  lookback_days: 120
+  raw_dir: data/raw
+  stock_list_file: data/stock_list.csv
+  index_dir: data/index/w20-zscore
+
+# 模型参数（双通道架构不变）
+model:
+  model_type: dual_channel
+  input_dim: 5
+  d_model: 64
+  nhead: 4
+  num_layers: 3
+  ffn_dim: 256
+  dropout: 0.1
+  embed_dim: 128
+
+# 训练参数
+train:
+  batch_size: 1024
+  lr: 1.2e-3
+  weight_decay: 1.0e-4
+  epochs: 50
+  early_stopping_patience: 10
+  temperature: 0.12
+  checkpoint_dir: checkpoints/w20-zscore
+  mixed_precision: true
+
+# 检索参数
+search:
+  top_k: 10
